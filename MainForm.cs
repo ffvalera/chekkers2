@@ -1,25 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Windows.Forms.VisualStyles;
-
-namespace chekkers2
-
+﻿namespace chekkers2
 {
-    public enum Player
-    {
-        Black = 0, White = 1
-    };
-    public enum State
-    {
-        Normal, King
-    }
+    public enum Player {Black = 0, White = 1};
+    public enum State {Normal, King}
 
     public struct cell
     {
@@ -46,13 +28,14 @@ namespace chekkers2
         Image blackKing = new Bitmap(new Bitmap("../../../Images/black.jpg"), new Size(cellSize - 10, cellSize - 10));
         Point[] whiteMoves = { new Point(1, -1), new Point(-1, -1) };
         Point[] blackMoves = { new Point(1, 1), new Point(-1, 1) };
-        Point[] takeMoves = { new Point(2, 2), new Point(-2, 2), new Point(-2, -2), new Point(2, -2) };
+        Point[] takeMoves = { new Point(2, 2), new Point(-2, 2), new Point(-2, -2), new Point(2, -2) };       
+        Point[] kingMoves = new Point[28];
 
         Player currentPlayer;
         Button[,] board = new Button[boardSize, boardSize];        
         bool isMoving = false;
-        Button? whosMoving = null;
-        
+        bool isLongTaking = false;
+        Button? whosMoving = null;    
         
         public MainForm()
         {
@@ -61,14 +44,21 @@ namespace chekkers2
         }
         public void Init()
         {
-            currentPlayer = Player.White;
+            for(int i = 1; i < boardSize; i++)
+            {
+                kingMoves[(i - 1) * 4] = new Point(i, i);
+                kingMoves[(i - 1) * 4 + 1] = new Point(-i, i);
+                kingMoves[(i - 1) * 4 + 2] = new Point(i, -i);
+                kingMoves[(i - 1) * 4 + 3] = new Point(-i, -i);
+            }
+            currentPlayer = Player.Black;
             this.Text = "Chekkers";
             CreateBoard();
         }
         public void CreateBoard()
         {
             this.Width = boardSize * cellSize + 20;
-            this.Height = boardSize * cellSize + 40;
+            this.Height = boardSize * cellSize + 60;
 
             for (int i = 0; i < boardSize; i++)
                 for (int j = 0; j < boardSize; j++)
@@ -115,7 +105,6 @@ namespace chekkers2
                 this.Controls.Add(label);
             }
         }
-
         public void SwitchPlayer()
         {
             currentPlayer = 1 - currentPlayer;
@@ -136,44 +125,125 @@ namespace chekkers2
 
             target.Image = start.Image;
             start.Image = null;
+
+            if (targetCell.y == 0 && targetCell.Player == Player.White || targetCell.y == 7 && targetCell.Player == Player.Black)
+            {
+                targetCell.State = State.King;
+                target.Tag = targetCell;
+                target.Image = targetCell.Player == Player.White ? whiteKing : blackKing;
+            }
         }
         bool isSimpleMoveCorrect(cell start, cell target)
         {
-            return target.Player == null
-                && (start.Player == Player.White && whiteMoves.Contains(new Point( target.x- start.x, target.y - start.y))
-                || (start.Player == Player.Black && blackMoves.Contains(new Point( target.x- start.x,  target.y- start.y))));
+            if (start.State == State.Normal)
+                return target.Player == null
+                    && (start.Player == Player.White && whiteMoves.Contains(new Point(target.x - start.x, target.y - start.y))
+                    || (start.Player == Player.Black && blackMoves.Contains(new Point(target.x - start.x, target.y - start.y))));
+            else
+            {
+                var dir = new Point(target.x - start.x, target.y - start.y);
+                if (Math.Abs(dir.X) != Math.Abs(dir.Y) || Math.Abs(dir.X) == 0)
+                    return false;
+                dir.X /= Math.Abs(dir.X);
+                dir.Y /= Math.Abs(dir.Y);
+                var targ = new Point(target.x, target.y);
+                while(targ.X != start.x && targ.Y != start.y)
+                {
+                    cell mid = (cell)board[targ.X, targ.Y].Tag;
+                    if (mid.Player != null)
+                        return false;
+                    targ.X -= dir.X;
+                    targ.Y -= dir.Y;
+                }
+                return true;
+            }
         }
-        bool isTakeMoveCorrect(cell start, cell target)
+        Button isTakeMoveCorrect(cell start, cell target)
         {
-            cell mid = (cell)board[(start.x + target.x) / 2, (start.y + target.y) / 2].Tag;
-            return target.Player == null
-                && takeMoves.Contains(new Point(target.x - start.x, target.y - start.y))
-                && mid.Player != null && mid.Player != currentPlayer;
+            if (start.State != State.King)
+            {
+                cell mid = (cell)board[(start.x + target.x) / 2, (start.y + target.y) / 2].Tag;
+                if (target.Player == null
+                    && takeMoves.Contains(new Point(target.x - start.x, target.y - start.y))
+                    && mid.Player != null && mid.Player != currentPlayer)                                    
+                    return board[mid.x, mid.y];                
+                else
+                    return null;
+            }
+            else
+            {
+                var dir = new Point(target.x - start.x, target.y - start.y);
+                cell dirCell = (cell)board[target.x, target.y].Tag;
+                if (Math.Abs(dir.X) != Math.Abs(dir.Y) || Math.Abs(dir.X) == 0 || dirCell.Player != null)
+                    return null;
 
+                bool findChekker = false;
+                Button chekker = null;
+
+                dir.X /= Math.Abs(dir.X);
+                dir.Y /= Math.Abs(dir.Y);
+                var targ = new Point(target.x-dir.X, target.y-dir.Y);
+
+                while (targ.X != start.x && targ.Y != start.y)
+                {
+                    cell mid = (cell)board[targ.X, targ.Y].Tag;
+                    if (mid.Player == currentPlayer)
+                        return null;
+                    else if(mid.Player != null)
+                    {
+                        if (findChekker)
+                            return null;
+                        findChekker = true;
+                        chekker = board[mid.x, mid.y];
+                    }
+
+                    targ.X -= dir.X;
+                    targ.Y -= dir.Y;
+                }
+                return chekker;
+            }
         }
         void Remove(Button button)
         {
             cell cell = (cell)button.Tag;
             cell.Player = null;
+            cell.State = null;
             button.Tag = cell;
             button.Image = null;
         }
         bool canTake(cell cell)
         {
+            var moves = takeMoves;
+            if (cell.State == State.King)
+                moves = kingMoves;
+
             bool ans = false;
-            foreach (var move in takeMoves)
+            foreach (var move in moves)
             {
                 if (cell.x + move.X < boardSize && cell.y + move.Y < boardSize && cell.x + move.X >= 0 && cell.y + move.Y >= 0)
                 {
                     cell target = (cell)board[cell.x + move.X, cell.y + move.Y].Tag;
-                    ans = ans || isTakeMoveCorrect(cell, target);
+                    ans = ans || (isTakeMoveCorrect(cell, target) != null);
                 }
             }
             return ans;
         }
-        void normalMoving(cell start, cell cell, Button button)
+        bool mustTake()
         {
-            if (isSimpleMoveCorrect(start, cell) && !canTake(start))
+            bool ans = false;
+            foreach (var button in board)
+            {
+                cell cell = (cell)button.Tag;
+                if(cell.Player == currentPlayer)
+                {
+                    ans = ans || canTake(cell);
+                }
+            }
+            return ans;
+        }
+        void Moving(cell start, cell cell, Button button)
+        {
+            if (isSimpleMoveCorrect(start, cell) && !mustTake())
             {
                 Move(whosMoving, button);
 
@@ -182,36 +252,34 @@ namespace chekkers2
                 whosMoving.BackColor = Color.FromArgb(192, 64, 0);
                 whosMoving = null;
             }
-            else if (isTakeMoveCorrect(start, cell))
+            else if (isTakeMoveCorrect(start, cell) != null)
             {
-                Button mid = board[(start.x + cell.x) / 2, (start.y + cell.y) / 2];
+                Button mid = isTakeMoveCorrect(start, cell);
                 Move(whosMoving, button);
                 Remove(mid);
+                cell = (cell)button.Tag;
                 if (!canTake(cell))
                 {
                     SwitchPlayer();
                     isMoving = false;
+                    isLongTaking = false;
                     whosMoving.BackColor = Color.FromArgb(192, 64, 0);
                     whosMoving = null;
                 }
                 else
                 {
+                    isLongTaking=true;
                     button.BackColor = currentChekker;
                     whosMoving.BackColor = Color.FromArgb(192, 64, 0);
                     whosMoving = button;
                 }
             }
-            else if (!canTake(start))
+            else if (!isLongTaking)
             {
                 isMoving = false;
                 whosMoving.BackColor = Color.FromArgb(192, 64, 0);
                 whosMoving = null;
             }
-
-        }
-        void KingMoving(cell start, cell cell, Button button)
-        {
-
         }
         void Click(object sender, EventArgs e)
         {
@@ -221,14 +289,8 @@ namespace chekkers2
             if (isMoving)
             {
                 cell start = (cell)whosMoving.Tag;
-                if (start.State == State.Normal)
-                {
-                    normalMoving(start, cell, button);
-                }
-                else
-                {
-                    KingMoving(start, cell, button);
-                }
+                
+                Moving(start, cell, button);                
             }
             else if (cell.Player == currentPlayer)
             {
@@ -238,12 +300,7 @@ namespace chekkers2
             }
 
             cell = (cell)button.Tag;
-            if(cell.y == 0 && cell.Player == Player.White || cell.y == 7 && cell.Player == Player.Black)
-            {
-                cell.State = State.King;
-                button.Tag = cell;
-                button.Image = cell.Player == Player.White?whiteKing:blackKing;
-            }
+        
         }
     }
 }
