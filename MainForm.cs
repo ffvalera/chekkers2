@@ -36,6 +36,7 @@ namespace chekkers2
         Point[] kingMoves = new Point[28];
 
         Player currentPlayer;
+        Label textCurrentPlayer = new Label();
         Button[,] board = new Button[boardSize, boardSize];        
         bool isMoving = false;
         bool isLongTaking = false;
@@ -62,8 +63,8 @@ namespace chekkers2
         }
         public void CreateBoard()
         {
-            this.Width = boardSize * cellSize + 20;
-            this.Height = boardSize * cellSize + 60;
+            this.Width = boardSize * cellSize + 40;
+            this.Height = boardSize * cellSize + 90;
 
             for (int i = 0; i < boardSize; i++)
                 for (int j = 0; j < boardSize; j++)
@@ -109,10 +110,24 @@ namespace chekkers2
                 label.Size = new Size(cellSize, cellSize/2);
                 this.Controls.Add(label);
             }
+            for (int i = 0; i < boardSize; i++)
+            {
+                Label label = new Label();
+                label.Text = (i + 1).ToString();
+                label.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+                label.Location = new Point(boardSize * cellSize, i * cellSize);
+                label.Size = new Size(cellSize/2, cellSize);
+                this.Controls.Add(label);
+            }
+            textCurrentPlayer.Text = currentPlayer.ToString();
+            textCurrentPlayer.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            textCurrentPlayer.Location = new Point(3* cellSize, boardSize * cellSize+30);
+            this.Controls.Add(textCurrentPlayer);
         }
         public void SwitchPlayer()
         {
             currentPlayer = 1 - currentPlayer;
+            textCurrentPlayer.Text = currentPlayer.ToString();
         }
         void Move(Button start, Button target)
         {
@@ -344,8 +359,11 @@ namespace chekkers2
             if (isMoving)
             {
                 cell start = (cell)whosMoving.Tag;
-                DeleteMoves();
-                Moving(start, cell, button);                
+                if(!isLongTaking)
+                    DeleteMoves();
+                Moving(start, cell, button);
+                if (!isLongTaking)
+                    DeleteMoves();
             }
             else if (cell.Player == currentPlayer)
             {
