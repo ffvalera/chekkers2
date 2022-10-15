@@ -1,4 +1,6 @@
-﻿namespace chekkers2
+﻿using System.Numerics;
+
+namespace chekkers2
 {
     public enum Player {Black = 0, White = 1};
     public enum State {Normal, King}
@@ -22,6 +24,8 @@
         const int boardSize = 8;
         const int cellSize = 60;
         Color currentChekker = Color.Gold;
+        Color canMove = Color.Aquamarine;
+        Color Broun = Color.FromArgb(192, 64, 0);
         Image white = new Bitmap(new Bitmap("../../../Images/whiteChekker.png"), new Size(cellSize - 10, cellSize - 10));
         Image black = new Bitmap(new Bitmap("../../../Images/blackChekker.png"), new Size(cellSize - 10, cellSize - 10));
         Image whiteKing = new Bitmap(new Bitmap("../../../Images/white.jpg"), new Size(cellSize - 10, cellSize - 10));
@@ -35,7 +39,8 @@
         Button[,] board = new Button[boardSize, boardSize];        
         bool isMoving = false;
         bool isLongTaking = false;
-        Button? whosMoving = null;    
+        Button? whosMoving = null;
+        List<Button> colored = new List<Button>();
         
         public MainForm()
         {
@@ -268,6 +273,7 @@
                 }
                 else
                 {
+                    GetMoves(cell);
                     isLongTaking=true;
                     button.BackColor = currentChekker;
                     whosMoving.BackColor = Color.FromArgb(192, 64, 0);
@@ -281,6 +287,55 @@
                 whosMoving = null;
             }
         }
+        void GetMoves(cell cell)
+        {
+            if (canTake(cell))
+            {
+                var moves = takeMoves;
+                if (cell.State == State.King)
+                    moves = kingMoves;
+
+
+                foreach (var move in moves)
+                {
+                    if (cell.x + move.X < boardSize && cell.y + move.Y < boardSize && cell.x + move.X >= 0 && cell.y + move.Y >= 0)
+                    {
+                        cell target = (cell)board[cell.x + move.X, cell.y + move.Y].Tag;
+                        if (isTakeMoveCorrect(cell, target) != null)
+                        {
+                            board[target.x, target.y].BackColor = canMove;
+                            colored.Add(board[target.x, target.y]);
+                        }
+                    }
+                }
+            }
+            else if(!mustTake())
+            {
+                var moves = cell.Player == Player.White ? whiteMoves : blackMoves;
+                if (cell.State == State.King)
+                    moves = kingMoves;
+                foreach(var move in moves)
+                {
+                    if (cell.x + move.X < boardSize && cell.y + move.Y < boardSize && cell.x + move.X >= 0 && cell.y + move.Y >= 0)
+                    {
+                        cell target = (cell)board[cell.x + move.X, cell.y + move.Y].Tag;
+                        if (isSimpleMoveCorrect(cell, target))
+                        {
+                            board[target.x, target.y].BackColor = canMove;
+                            colored.Add(board[target.x, target.y]);
+                        }
+                    }
+                }
+            }
+        }
+        void DeleteMoves()
+        {
+            foreach(Button button in colored)
+            {
+                button.BackColor = Broun;
+            }
+            colored.Clear();
+        }
         void Click(object sender, EventArgs e)
         {
             Button button = (Button)sender;
@@ -289,7 +344,7 @@
             if (isMoving)
             {
                 cell start = (cell)whosMoving.Tag;
-                
+                DeleteMoves();
                 Moving(start, cell, button);                
             }
             else if (cell.Player == currentPlayer)
@@ -297,6 +352,7 @@
                 whosMoving = button;
                 button.BackColor = currentChekker;
                 isMoving = true;
+                GetMoves(cell);
             }
 
             cell = (cell)button.Tag;
