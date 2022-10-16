@@ -1,6 +1,4 @@
-﻿using System.Numerics;
-
-namespace chekkers2
+﻿namespace chekkers2
 {
     public enum Player {Black = 0, White = 1};
     public enum State {Normal, King}
@@ -128,6 +126,9 @@ namespace chekkers2
         {
             currentPlayer = 1 - currentPlayer;
             textCurrentPlayer.Text = currentPlayer.ToString();
+            if (!canPlay(currentPlayer))
+                EndGame(1 - currentPlayer);
+
         }
         void Move(Button start, Button target)
         {
@@ -350,6 +351,57 @@ namespace chekkers2
                 button.BackColor = Broun;
             }
             colored.Clear();
+        }
+        bool canPlay(Player player)
+        {            
+            var simpleMoves = player == Player.White ? whiteMoves : blackMoves;
+
+            for(int i = 0; i < boardSize; i++)
+                for(int j = 0; j < boardSize; j++)
+                {
+                    Button button = board[i, j];
+                    cell cell = (cell)button.Tag;
+                    if (cell.Player != player)
+                        continue;
+
+                    if (cell.State == State.King)
+                    {
+                        foreach (var kingMove in kingMoves)
+                            if (cell.x + kingMove.X < boardSize && cell.y + kingMove.Y < boardSize && cell.x + kingMove.X >= 0 && cell.y + kingMove.Y >= 0)
+                            {
+                                cell target = (cell)board[cell.x + kingMove.X, cell.y + kingMove.Y].Tag;
+                                if (isSimpleMoveCorrect(cell, target) || isTakeMoveCorrect(cell, target) != null)
+                                    return true;
+                            }
+                    }
+                    else
+                    {
+                        foreach (var move in simpleMoves)                        
+                            if (cell.x + move.X < boardSize && cell.y + move.Y < boardSize && cell.x + move.X >= 0 && cell.y + move.Y >= 0)
+                            {
+                                cell target = (cell)board[cell.x + move.X, cell.y + move.Y].Tag;
+                                if (isSimpleMoveCorrect(cell, target))
+                                    return true;
+                            }                        
+                        foreach(var move in takeMoves)
+                            if (cell.x + move.X < boardSize && cell.y + move.Y < boardSize && cell.x + move.X >= 0 && cell.y + move.Y >= 0)
+                            {
+                                cell target = (cell)board[cell.x + move.X, cell.y + move.Y].Tag;
+                                if (isTakeMoveCorrect(cell, target) != null)
+                                    return true;
+                            }
+
+                    }
+                }
+            return false;
+        }
+        void EndGame(Player winner)
+        {
+            this.Controls.Clear();
+            Label label = new Label();
+            label.Text = $"{winner.ToString()} is win";
+            label.Location = new Point(boardSize * cellSize / 2, boardSize * cellSize / 2);
+            Controls.Add(label);
         }
         void Click(object sender, EventArgs e)
         {
